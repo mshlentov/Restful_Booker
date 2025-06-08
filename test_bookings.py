@@ -1,4 +1,6 @@
 import pytest
+import requests
+
 from constants import BASE_URL
 
 class TestBookings:
@@ -69,6 +71,49 @@ class TestBookings:
 
         # Проверяем, что другие данные не изменились
         assert get_booking.json()["totalprice"] == booking_data["totalprice"], "Заданная стоимость не совпадает"
+
+
+    def test_negative_get_booking(self, auth_session):
+        # Сохраняем ID несуществующей записи
+        booking_id = 0
+
+        # Пытаемся получить несуществующее бронирование
+        get_booking = auth_session.get(f"{BASE_URL}/booking/{booking_id}")
+
+        # Проверяем, что возвращается 404 ошибка
+        assert get_booking.status_code == 404, "Некорректное поведение системы при запросе не существующей записи"
+
+
+    def test_negative_partial_update_booking(self, auth_session, booking_data, partial_update_booking_data):
+        # Создаём бронирование
+        create_booking = auth_session.post(f"{BASE_URL}/booking", json=booking_data)
+        assert create_booking.status_code == 200, "Ошибка при создании брони"
+
+        # Сохраняем ID созданной записи
+        booking_id = create_booking.json().get("bookingid")
+
+        # Частично обновляем данные для созданного бронирования, НО без авторизации
+        update_booking = requests.patch(f"{BASE_URL}/booking/{booking_id}", json=partial_update_booking_data)
+        assert update_booking.status_code == 403, "Отсутствует ошибка 403 при изменение бронирования без авторизации"
+
+        # Получаем бронирование
+        get_booking = auth_session.get(f"{BASE_URL}/booking/{booking_id}")
+
+        # Проверяем что данные не изменились
+        assert get_booking.json()["firstname"] == booking_data["firstname"], "Заданное имя не совпадает"
+        assert get_booking.json()["lastname"] == booking_data["lastname"], "Заданная фамилия не совпадает"
+
+    def test_negative_create_booking(self, auth_session, partial_update_booking_data):
+        # Пытаемся создать бронирование, где в качестве данных передаются не все обязательные поля
+        create_booking = auth_session.post(f"{BASE_URL}/booking", json=partial_update_booking_data)
+        assert create_booking.status_code == 500, "Ошибка при валидации обязательных полей"
+
+
+
+
+
+
+
 
 
 
