@@ -1,28 +1,33 @@
 import pytest
 import requests
 from faker import Faker
-from constants import HEADERS, BASE_URL
+from requests import session
+
+from constants import HEADERS, BASE_URL, LOGIN_ENDPOINT, AUTH_DATA
+from custom_requester import CustomRequester
 
 faker = Faker()
 
 @pytest.fixture(scope="session")
-def auth_session():
+def auth_session(requester):
     session = requests.Session()
     session.headers.update(HEADERS)
 
-    response = requests.post(
-        f"{BASE_URL}/auth",
-        headers=HEADERS,
-        json={"username": "admin", "password": "password123"}
+    response = requester.send_request(
+        method="POST",
+        endpoint=LOGIN_ENDPOINT,
+        data=AUTH_DATA,
+        expected_status=200
     )
-    assert response.status_code == 200, "Ошибка авторизации"
+
+    print(response.json())
     token = response.json().get("token")
     assert token is not None, "В ответе не оказалось токена"
 
     session.headers.update({"Cookie": f"token={token}"})
     return session
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def booking_data():
     return {
         "firstname": faker.first_name(),
@@ -36,7 +41,7 @@ def booking_data():
         "additionalneeds": "Cigars"
     }
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def update_booking_data():
     return {
         "firstname": faker.first_name(),
@@ -50,9 +55,24 @@ def update_booking_data():
         "additionalneeds": "Hookah"
     }
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def partial_update_booking_data():
     return {
         "firstname": faker.first_name(),
         "lastname": faker.last_name()
     }
+
+@pytest.fixture(scope="session")
+def requester():
+    """
+    Фикстура для создания экземпляра CustomRequester.
+    """
+    session = requests.Session()
+    return CustomRequester(session=session, base_url=BASE_URL)
+
+@pytest.fixture(scope="session")
+def auth_requester(auth_session):
+    """
+    Фикстура для создания экземпляра CustomRequester.
+    """
+    return CustomRequester(session=auth_session, base_url=BASE_URL)
